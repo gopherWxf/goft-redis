@@ -17,10 +17,12 @@ type SimpleCache struct {
 	Expire     time.Duration
 	DBGetter   DBGetterFunc
 	Serializer string
+	Policy     CachePolicy
 }
 
-func NewSimpleCache(operation *StringOperation, expire time.Duration, serializer string) *SimpleCache {
-	return &SimpleCache{Operation: operation, Expire: expire, Serializer: serializer}
+func NewSimpleCache(operation *StringOperation, expire time.Duration, serializer string, policy CachePolicy) *SimpleCache {
+	policy.SetOperation(operation)
+	return &SimpleCache{Operation: operation, Expire: expire, Serializer: serializer, Policy: policy}
 }
 
 // 设置缓存
@@ -28,6 +30,9 @@ func (this *SimpleCache) SetCache(key string, val interface{}) {
 	this.Operation.Set(key, val, WithExpire(this.Expire)).Unwrap()
 }
 func (this *SimpleCache) GetCache(key string) (ret interface{}) {
+	if this.Policy != nil {
+		this.Policy.Before(key)
+	}
 	if this.Serializer == Serializer_JSON {
 		f := func() string {
 			obj := this.DBGetter()
@@ -38,7 +43,6 @@ func (this *SimpleCache) GetCache(key string) (ret interface{}) {
 			return string(b)
 		}
 		ret = this.Operation.Get(key).UnwrapOrElse(f)
-		this.SetCache(key, ret)
 	} else if this.Serializer == Serializer_GOB {
 		f := func() string {
 			obj := this.DBGetter()
@@ -50,6 +54,10 @@ func (this *SimpleCache) GetCache(key string) (ret interface{}) {
 			return buf.String()
 		}
 		ret = this.Operation.Get(key).UnwrapOrElse(f)
+	}
+	if ret.(string) == "" && this.Policy != nil {
+		this.Policy.IfNil(key, nil)
+	} else {
 		this.SetCache(key, ret)
 	}
 
