@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/gopherWxf/goft-redis/lib"
 )
@@ -36,5 +38,6 @@ func main() {
 		newsCache.GetCacheForObject("news"+newsID, newsModel)
 		ctx.JSON(200, newsModel)
 	})
+	fmt.Println("I am A")
 	r.Run(":8080")
 }
